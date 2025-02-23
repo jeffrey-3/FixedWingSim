@@ -1,1 +1,3 @@
-Using JSBSIM
+# TODO:
+- Visuals
+- Graphing (frequency domain analysis) 
