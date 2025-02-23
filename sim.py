@@ -2,8 +2,6 @@ import jsbsim
 import time
 from tabulate import tabulate
 
-# Ref: https://github.com/AOS55/Fixedwing-Airsim/blob/master/src/jsbsim_properties.py
-
 class Simulator:
     def __init__(self):
         self.fdm = jsbsim.FGFDMExec("models_jsbsim", None)  # Use JSBSim default aircraft data.
@@ -20,17 +18,18 @@ class Simulator:
     def set_initial_conditions(self):
         self.fdm["ic/lat-geod-deg"] = 38.897957
         self.fdm["ic/long-gc-deg"] = -77.036560
-        self.fdm["ic/h-sl-ft"] = 50
+        self.fdm["ic/h-sl-ft"] = 100
         self.fdm['ic/psi-true-deg'] = 0
-        self.fdm["ic/vc-kts"] = 50
+        self.fdm["ic/vc-kts"] = 30
 
     def run(self):
         sim_time = self.fdm.get_sim_time()
         real_time = time.time() - self.start_time
 
         if real_time >= sim_time:
+            ptch_sp = 0.02 * (500 - self.fdm['position/h-sl-ft'])
             self.fdm['fcs/aileron-cmd-norm'] = 0.02 * (0 - self.fdm['attitude/phi-deg']) # P controller wing leveller
-            self.fdm['fcs/elevator-cmd-norm'] = -1 * 0.02 * (10 - self.fdm['attitude/theta-deg'])
+            self.fdm['fcs/elevator-cmd-norm'] = -1 * 0.02 * (ptch_sp - self.fdm['attitude/theta-deg'])
             self.fdm['fcs/throttle-cmd-norm'] = 0.9
 
             self.fdm.run()
