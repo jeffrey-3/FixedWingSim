@@ -19,6 +19,8 @@ class Simulator:
         self.fdm["ic/lat-geod-deg"] = 38.897957
         self.fdm["ic/long-gc-deg"] = -77.036560
         self.fdm["ic/h-sl-ft"] = 100
+        self.fdm['attitude/phi-deg'] = 0
+        self.fdm['attitude/theta-deg'] = 0
         self.fdm['ic/psi-true-deg'] = 0
         self.fdm["ic/vc-kts"] = 30
 
@@ -27,10 +29,10 @@ class Simulator:
         real_time = time.time() - self.start_time
 
         if real_time >= sim_time:
-            ptch_sp = 0.1 * (200 - self.fdm['position/h-sl-ft'])
-            self.fdm['fcs/aileron-cmd-norm'] = 0.02 * (20 - self.fdm['attitude/phi-deg']) # P controller wing leveller
+            ptch_sp = 0.05 * (100 - self.fdm['position/h-sl-ft'])
+            self.fdm['fcs/aileron-cmd-norm'] = 0.02 * (0 - self.fdm['attitude/phi-deg']) # P controller wing leveller
             self.fdm['fcs/elevator-cmd-norm'] = -1 * 0.02 * (ptch_sp - self.fdm['attitude/theta-deg'])
-            self.fdm['fcs/throttle-cmd-norm'] = 0.7
+            self.fdm['fcs/throttle-cmd-norm'] = 0
 
             self.fdm.run()
 
