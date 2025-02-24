@@ -39,7 +39,7 @@ class Visuals(ShowBase):
     def create_ground(self):
         """Create a grid for the ground using LineSegs."""
         lines = LineSegs()
-        lines.setThickness(2)  # Set the thickness of the grid lines
+        lines.setThickness(1)  # Set the thickness of the grid lines
         lines.setColor(1, 1, 1, 0.2)  # Gray color for the grid
 
         grid_size = 1000  # Size of the grid
