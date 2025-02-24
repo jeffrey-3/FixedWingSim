@@ -18,26 +18,27 @@ class Simulator:
     def set_initial_conditions(self):
         self.fdm["ic/lat-geod-deg"] = 38.897957
         self.fdm["ic/long-gc-deg"] = -77.036560
-        self.fdm["ic/h-sl-ft"] = 100
+        self.fdm["ic/h-sl-ft"] = 5
         self.fdm['attitude/phi-deg'] = 0
         self.fdm['attitude/theta-deg'] = 0
         self.fdm['ic/psi-true-deg'] = 0
-        self.fdm["ic/vc-kts"] = 30
+        self.fdm["ic/vc-kts"] = 1
+        self.fdm['fcs/throttle-cmd-norm'] = 0.0001
+    
+    def set_controls(self, aileron, elevator, throttle):
+        self.fdm['fcs/aileron-cmd-norm'] = aileron
+        self.fdm['fcs/elevator-cmd-norm'] = elevator
+        self.fdm['fcs/throttle-cmd-norm'] = throttle
 
     def run(self):
         sim_time = self.fdm.get_sim_time()
         real_time = time.time() - self.start_time
 
         if real_time >= sim_time:
-            ptch_sp = 0.05 * (100 - self.fdm['position/h-sl-ft'])
-            self.fdm['fcs/aileron-cmd-norm'] = 0.02 * (0 - self.fdm['attitude/phi-deg']) # P controller wing leveller
-            self.fdm['fcs/elevator-cmd-norm'] = -1 * 0.02 * (ptch_sp - self.fdm['attitude/theta-deg'])
-            self.fdm['fcs/throttle-cmd-norm'] = 0
-
             self.fdm.run()
 
             if time.time() - self.last_print_time > 0.3:
-                headers = ["Time", "Roll", "Pitch", "Heading", "Alt", "Lat", "Lon", "Spd", "Thr"]
+                headers = ["Time", "Roll", "Pitch", "Heading", "Alt", "Lat", "Lon", "Spd", "Thr", "acc_x"]
                 data = [[
                     f"{sim_time:.1f}",
                     f"{self.fdm['attitude/phi-deg']:.1f}",
@@ -47,7 +48,8 @@ class Simulator:
                     f"{self.fdm['position/lat-geod-deg']:.7f}",
                     f"{self.fdm['position/long-gc-deg']:.7f}",
                     f"{self.fdm['velocities/vc-kts']:.1f}",
-                    f"{self.fdm['fcs/throttle-cmd-norm']:.2f}"
+                    f"{self.fdm['fcs/throttle-cmd-norm']:.2f}",
+                    f"{self.fdm['accelerations/Nz']:.2f}"
                 ]]
                 
                 print(tabulate(data, headers=headers, tablefmt="plain"))

@@ -8,11 +8,6 @@ class Visuals(ShowBase):
         # Black background color
         self.win.setClearColor(Vec4(0, 0, 0, 1))
 
-        # Set FOV
-        lens = PerspectiveLens()
-        lens.setFov(120)
-        self.cam.node().setLens(lens)
-
         # Disable default mouse camera control
         self.disableMouse()
 
@@ -26,16 +21,28 @@ class Visuals(ShowBase):
         self.east = 0
         self.down = 0
 
+        self.aileron = 0
+        self.elevator = 0
+        self.throttle = 0
+        self.mouse_enable = False
+
         # Add the flight control task
         self.taskMgr.add(self.update_flight, "update_flight")
+
+        self.taskMgr.add(self.get_mouse_pos, "MousePositionTask")
+
+        # Accept key events
+        self.accept("w", self.change_throttle, [1])
+        self.accept("s", self.change_throttle, [-1])
+        self.accept("tab", self.toggle_mouse)
 
     def create_ground(self):
         """Create a grid for the ground using LineSegs."""
         lines = LineSegs()
-        lines.setThickness(1)  # Set the thickness of the grid lines
-        lines.setColor(0.5, 0.5, 0.5, 1)  # Gray color for the grid
+        lines.setThickness(2)  # Set the thickness of the grid lines
+        lines.setColor(1, 1, 1, 0.2)  # Gray color for the grid
 
-        grid_size = 10000  # Size of the grid
+        grid_size = 1000  # Size of the grid
         spacing = 10  # Spacing between grid lines
 
         # Draw horizontal lines
@@ -58,7 +65,7 @@ class Visuals(ShowBase):
     def create_runway(self):
         """Create a grey runway on the grid."""
         runway_lines = LineSegs()
-        runway_lines.setThickness(2)  # Thicker lines for the runway
+        runway_lines.setThickness(5)  # Thicker lines for the runway
         runway_lines.setColor(1, 1, 0, 1)  # Grey color for the runway
 
         # Define runway dimensions
@@ -75,7 +82,7 @@ class Visuals(ShowBase):
         # Create the runway node and attach it to the scene
         runway_node = runway_lines.create()
         runway = self.render.attachNewNode(runway_node)
-        runway.setPos(0, 300, 0)  # Center the runway at the origin
+        runway.setPos(0, 200, 0)  # Center the runway at the origin
     
     def update_flight_state(self, roll, pitch, heading, north, east, down):
         """Update the flight state variables."""
@@ -91,3 +98,16 @@ class Visuals(ShowBase):
         self.camera.setPos(self.east, self.north, -self.down)
 
         return task.cont
+
+    def get_mouse_pos(self, task):
+        if self.mouseWatcherNode.hasMouse():
+            self.aileron = self.mouseWatcherNode.getMouseX()
+            self.elevator = self.mouseWatcherNode.getMouseY()
+        return task.cont  # Continue the task
+
+    def change_throttle(self, delta):
+        self.throttle += delta * 0.25  # Adjust step size
+        self.throttle = max(0.0, min(1.0, self.throttle))  # Clamp between 0 and 1
+    
+    def toggle_mouse(self):
+        self.mouse_enable = not self.mouse_enable
