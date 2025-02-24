@@ -1,94 +1,64 @@
-from panda3d.core import loadPrcFileData
-from panda3d.core import PerspectiveLens
-from panda3d.core import LPoint3, LVector3
-from panda3d.core import Geom, GeomNode, GeomVertexFormat, GeomVertexData
-from panda3d.core import GeomVertexWriter, GeomLines
+from panda3d.core import LineSegs, Vec4
 from direct.showbase.ShowBase import ShowBase
-from direct.task import Task
-import math
-import time
 
-# Configure Panda3D window
-loadPrcFileData("", "window-title Panda3D Flight Simulator")
-loadPrcFileData("", "win-size 800 600")
-loadPrcFileData("", "fullscreen false")
-loadPrcFileData("", "show-frame-rate-meter true")
-
-class FlightSimulator(ShowBase):
+class Visuals(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
 
-        # Set background color to black
-        self.win.setClearColor((0, 0, 0, 1))
+        # Black background color
+        self.win.setClearColor(Vec4(0, 0, 0, 1))
+
+        # Disable default mouse camera control
+        self.disableMouse()
 
         # Create a grid for the ground
         self.create_ground()
 
-        # Set up the camera
-        self.camera.setPos(0, 0, 10)  # Start above the ground
-        self.camera.lookAt(0, 0, 0)
+        self.roll = 0
+        self.pitch = 0
+        self.heading = 0
+        self.north = 0
+        self.east = 0
+        self.down = -1
 
-        # Fake data for movement
-        self.velocity = LVector3(0, 1, 0)  # Move forward along the Y-axis
-        self.angle = 0  # For simulating rotation
-
-        # Add the update task
-        self.taskMgr.add(self.update, "update_task")
-
-        self.start_time = time.time()
+        # Add the flight control task
+        self.taskMgr.add(self.update_flight, "update_flight")
 
     def create_ground(self):
-        # Create a grid using GeomNode
-        grid_node = GeomNode("grid")
+        """Create a grid for the ground using LineSegs."""
+        lines = LineSegs()
+        lines.setThickness(1)  # Set the thickness of the grid lines
+        lines.setColor(0.5, 0.5, 0.5, 1)  # Gray color for the grid
 
-        # Define vertex format and data
-        vformat = GeomVertexFormat.getV3()
-        vdata = GeomVertexData("grid_data", vformat, Geom.UHStatic)
+        grid_size = 10000  # Size of the grid
+        spacing = 20  # Spacing between grid lines
 
-        # Vertex writer
-        vertex = GeomVertexWriter(vdata, "vertex")
+        # Draw horizontal lines
+        for i in range(-grid_size, grid_size + 1, spacing):
+            lines.moveTo(i, -grid_size, 0)
+            lines.drawTo(i, grid_size, 0)
 
-        # Create grid lines
-        lines = GeomLines(Geom.UHStatic)
-        size = 1000  # Size of the grid
-        step = 10  # Spacing between lines
+        # Draw vertical lines
+        for i in range(-grid_size, grid_size + 1, spacing):
+            lines.moveTo(-grid_size, i, 0)
+            lines.drawTo(grid_size, i, 0)
 
-        # Horizontal lines
-        for x in range(-size, size + 1, step):
-            vertex.addData3(x, -size, 0)
-            vertex.addData3(x, size, 0)
-            lines.addNextVertices(2)
-
-        # Vertical lines
-        for y in range(-size, size + 1, step):
-            vertex.addData3(-size, y, 0)
-            vertex.addData3(size, y, 0)
-            lines.addNextVertices(2)
-
-        # Create the Geom object and add the lines to it
-        grid_geom = Geom(vdata)
-        grid_geom.addPrimitive(lines)
-
-        # Add the Geom to the GeomNode
-        grid_node.addGeom(grid_geom)
-
-        # Attach the grid to the scene
+        # Create the grid node and attach it to the scene
+        grid_node = lines.create()
         grid = self.render.attachNewNode(grid_node)
-        grid.setColor(0.5, 0.5, 0.5, 1)  # Gray color for the grid
+        grid.setPos(0, 0, 0)
+    
+    def update_flight_state(self, roll, pitch, heading, north, east, down):
+        """Update the flight state variables."""
+        self.roll = roll
+        self.pitch = pitch
+        self.heading = heading
+        self.north = north
+        self.east = east
+        self.down = down
 
-    def update(self, task):
-        # Simulate movement using fake data
-        dt = self.start_time - time.time()  # Access globalClock via self
-
-        # Move the camera forward
-        self.camera.setPos(0, -2*dt, 10)
-
-        # Simulate a slight rotation (yaw)
-        # self.angle += 0.001 * dt
-        # self.camera.setHpr(self.angle * 50, 0, 0)  # Tilt slightly for realism
+    def update_flight(self, task):
+        self.camera.setHpr(-self.heading, self.pitch, self.roll)
+        self.camera.setPos(self.east, self.north, -self.down)
 
         return task.cont
-
-# Run the simulator
-app = FlightSimulator()
-app.run()

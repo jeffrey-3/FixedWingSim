@@ -27,14 +27,14 @@ class Simulator:
         real_time = time.time() - self.start_time
 
         if real_time >= sim_time:
-            ptch_sp = 0.02 * (500 - self.fdm['position/h-sl-ft'])
-            self.fdm['fcs/aileron-cmd-norm'] = 0.02 * (0 - self.fdm['attitude/phi-deg']) # P controller wing leveller
+            ptch_sp = 0.1 * (200 - self.fdm['position/h-sl-ft'])
+            self.fdm['fcs/aileron-cmd-norm'] = 0.02 * (20 - self.fdm['attitude/phi-deg']) # P controller wing leveller
             self.fdm['fcs/elevator-cmd-norm'] = -1 * 0.02 * (ptch_sp - self.fdm['attitude/theta-deg'])
-            self.fdm['fcs/throttle-cmd-norm'] = 0.9
+            self.fdm['fcs/throttle-cmd-norm'] = 0.7
 
             self.fdm.run()
 
-            if time.time() - self.last_print_time > 0.4:
+            if time.time() - self.last_print_time > 0.3:
                 headers = ["Time", "Roll", "Pitch", "Heading", "Alt", "Lat", "Lon", "Spd", "Thr"]
                 data = [[
                     f"{sim_time:.1f}",
@@ -52,3 +52,6 @@ class Simulator:
                 print()
                 
                 self.last_print_time = time.time()
+    
+    def get_fdm(self):
+        return self.fdm
