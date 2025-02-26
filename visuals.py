@@ -1,9 +1,14 @@
-from panda3d.core import LineSegs, Vec4, PerspectiveLens
+from panda3d.core import LineSegs, Vec4, WindowProperties
 from direct.showbase.ShowBase import ShowBase
+from utils import *
 
 class Visuals(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
+
+        props = WindowProperties()
+        props.setTitle("UAV Simulation")
+        self.win.requestProperties(props)
 
         # Black background color
         self.win.setClearColor(Vec4(0, 0, 0, 1))
@@ -23,8 +28,7 @@ class Visuals(ShowBase):
 
         self.aileron = 0
         self.elevator = 0
-        self.throttle = 0
-        self.mouse_enable = False
+        self.throttle = 0.0001
 
         # Add the flight control task
         self.taskMgr.add(self.update_flight, "update_flight")
@@ -34,7 +38,6 @@ class Visuals(ShowBase):
         # Accept key events
         self.accept("w", self.change_throttle, [1])
         self.accept("s", self.change_throttle, [-1])
-        self.accept("tab", self.toggle_mouse)
 
     def create_ground(self):
         """Create a grid for the ground using LineSegs."""
@@ -43,7 +46,7 @@ class Visuals(ShowBase):
         lines.setColor(1, 1, 1, 0.2)  # Gray color for the grid
 
         grid_size = 1000  # Size of the grid
-        spacing = 10  # Spacing between grid lines
+        spacing = 5  # Spacing between grid lines
 
         # Draw horizontal lines
         for i in range(-grid_size, grid_size + 1, spacing):
@@ -69,7 +72,7 @@ class Visuals(ShowBase):
         runway_lines.setColor(1, 1, 0, 1)  # Grey color for the runway
 
         # Define runway dimensions
-        runway_length = 50  # Length of the runway
+        runway_length = 10  # Length of the runway
         runway_width = 400  # Width of the runway
 
         # Draw the runway outline
@@ -84,17 +87,19 @@ class Visuals(ShowBase):
         runway = self.render.attachNewNode(runway_node)
         runway.setPos(0, 200, 0)  # Center the runway at the origin
     
-    def update_flight_state(self, roll, pitch, heading, north, east, down):
-        """Update the flight state variables."""
+    def update_state(self, roll, pitch, heading, lat, lon, initial_lat, initial_lon, alt):
+        north, east = calculate_north_east(lat, lon, initial_lat, initial_lon)
         self.roll = roll
         self.pitch = pitch
         self.heading = heading
         self.north = north
         self.east = east
-        self.down = down
+        self.down = -alt
 
     def update_flight(self, task):
         self.camera.setHpr(-self.heading, self.pitch, self.roll)
+
+        # XYZ
         self.camera.setPos(self.east, self.north, -self.down)
 
         return task.cont
@@ -108,6 +113,3 @@ class Visuals(ShowBase):
     def change_throttle(self, delta):
         self.throttle += delta * 0.25  # Adjust step size
         self.throttle = max(0.0, min(1.0, self.throttle))  # Clamp between 0 and 1
-    
-    def toggle_mouse(self):
-        self.mouse_enable = not self.mouse_enable
