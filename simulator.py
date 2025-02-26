@@ -28,6 +28,8 @@ class Simulator:
                                       self.fdm.initial_lat,
                                       self.fdm.initial_lon,
                                       self.fdm.get_fdm()['position/h-sl-ft'] * 0.3048)
+            
+            self.hardware.send(self.fdm.get_fdm())
 
     def start(self):
         sim_thread = threading.Thread(target=self.update_sim)

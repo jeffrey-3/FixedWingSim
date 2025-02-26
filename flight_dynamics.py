@@ -33,19 +33,6 @@ class FlightDynamicsModel:
         self.fdm['ic/psi-true-deg'] = 0
         self.fdm["ic/vc-kts"] = 0
         self.fdm['fcs/throttle-cmd-norm'] = 0.0001
-    
-    def est_mag(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
-        gm = geomag.geomag.GeoMag()
-        mag = gm.GeoMag(lat_deg, lon_deg)
-        mag_ned = np.array( [mag.bx, mag.by, mag.bz] )
-        norm = np.linalg.norm(mag_ned)
-        mag_ned /= norm
-        N2B = navpy.angle2dcm(psi_rad, the_rad, phi_rad, input_unit='rad')
-        mag_body = N2B.dot(mag_ned)
-        norm = np.linalg.norm(mag_body)
-        mag_body /= norm
-        # print("  mag ned:", mag_ned, "body:", mag_body)
-        return mag_body
 
     def set_controls(self, aileron, elevator, throttle):
         self.fdm['fcs/aileron-cmd-norm'] = aileron
@@ -62,33 +49,6 @@ class FlightDynamicsModel:
             if time.time() - self.last_print_time > 0.2:
                 self.print()
                 self.last_print_time = time.time()
-
-        # mag = self.est_mag(self.fdm['position/lat-geod-deg'], 
-        #                        self.fdm['position/long-gc-deg'], 
-        #                        self.fdm['attitude/phi-rad'], 
-        #                        self.fdm['attitude/theta-rad'], 
-        #                        self.fdm['attitude/psi-rad'])
-            
-        # tx_buff = struct.pack('<13f', self.fdm['accelerations/Nx'], 
-        #                               self.fdm['accelerations/Ny'],
-        #                               self.fdm['accelerations/Nz'],
-        #                               self.fdm['velocities/p-rad_sec'],
-        #                               self.fdm['velocities/q-rad_sec'],
-        #                               self.fdm['velocities/r-rad_sec'],
-        #                               mag[0],
-        #                               mag[1],
-        #                               mag[2],
-        #                               self.fdm['position/h-sl-ft'],
-        #                               self.fdm['position/lat-geod-deg'],
-        #                               self.fdm['position/long-gc-deg'],
-        #                               self.fdm['position/h-agl-ft'])
-        
-        # north, east = calculate_north_east(self.fdm['position/lat-geod-deg'],
-        #                                    self.fdm['position/long-gc-deg'],
-        #                                    self.center_lat,
-        #                                    self.center_lon)
-        
-        # return self.fdm['attitude/phi-deg'], self.fdm['attitude/theta-deg'], self.fdm['attitude/psi-deg'], north, east, -self.fdm['position/h-sl-ft'] * 0.3048
     
     def get_fdm(self):
         return self.fdm
