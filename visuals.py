@@ -98,9 +98,7 @@ class Visuals(ShowBase):
 
     def update_flight(self, task):
         self.camera.setHpr(-self.heading, self.pitch, self.roll)
-
-        # XYZ
-        self.camera.setPos(self.east, self.north, -self.down)
+        self.camera.setPos(self.east, self.north, -self.down) # xyz
 
         return task.cont
 

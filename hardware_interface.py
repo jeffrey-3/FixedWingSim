@@ -10,15 +10,14 @@ class HardwareInterface:
     def __init__(self):
         self.mouse_enable = False
 
+        self.input = (0, 0, 0.001)
+
         try:
             self.ser = serial.Serial("COM25", 115200)
+            threading.Thread(target=self.update, daemon=True).start()
         except serial.serialutil.SerialException: 
             print("Can't open port. Using mouse control.")
             self.mouse_enable = True
-
-        self.input = (0, 0, 0.001)
-
-        threading.Thread(target=self.update, daemon=True).start()
     
     def read_inputs(self):
         return self.input
@@ -29,17 +28,17 @@ class HardwareInterface:
                                fdm['position/long-gc-deg'], 
                                fdm['attitude/phi-rad'], 
                                fdm['attitude/theta-rad'], 
-                               fdm['attitude/psi-rad'])
+                               fdm['attitude/psi-rad'] - math.pi)
                 
-            tx_buff = struct.pack('<13f', fdm['accelerations/Nx'], 
-                                          fdm['accelerations/Ny'],
-                                          fdm['accelerations/Nz'],
+            tx_buff = struct.pack('<13f', fdm['accelerations/n-pilot-x-norm'], 
+                                          fdm['accelerations/n-pilot-y-norm'],
+                                          fdm['accelerations/n-pilot-z-norm'],
                                           fdm['velocities/p-rad_sec'] * 180 / math.pi,
                                           fdm['velocities/q-rad_sec'] * 180 / math.pi,
                                           fdm['velocities/r-rad_sec'] * 180 / math.pi,
-                                          mag[0],
-                                          mag[1],
-                                          mag[2],
+                                          -mag[0],
+                                          -mag[1],
+                                          -mag[2],
                                           fdm['position/h-sl-ft'] * 0.3048,
                                           fdm['position/lat-geod-deg'],
                                           fdm['position/long-gc-deg'],
@@ -49,12 +48,11 @@ class HardwareInterface:
     
     def update(self):
         while True:
-            if not self.mouse_enable:
-                struct_format = 'fff'
-                struct_size = struct.calcsize(struct_format)
-                rx_buff = self.ser.read(struct_size)
-                self.input = struct.unpack(struct_format, rx_buff)
-                # print(rx_buff)
+            struct_format = 'fff'
+            struct_size = struct.calcsize(struct_format)
+            rx_buff = self.ser.read(struct_size)
+            self.input = struct.unpack(struct_format, rx_buff)
+            # print(rx_buff)
     
     def est_mag(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
         gm = geomag.geomag.GeoMag()

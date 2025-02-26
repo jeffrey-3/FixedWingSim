@@ -1,3 +1,1 @@
-# TODO:
-- Visuals
-- Graphing (frequency domain analysis) 
+Hardware-in-the-loop testing
