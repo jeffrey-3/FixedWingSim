@@ -16,20 +16,19 @@ class Simulator:
                 self.fdm.set_controls(self.visuals.aileron, self.visuals.elevator, self.visuals.throttle)
             else:
                 aileron, elevator, throttle = self.hardware.read_inputs()
+                print((aileron, elevator, throttle))
                 self.fdm.set_controls(aileron, elevator, throttle)
 
-            self.fdm.update()
-
-            self.visuals.update_state(self.fdm.get_fdm()['attitude/phi-deg'], 
-                                      self.fdm.get_fdm()['attitude/theta-deg'], 
-                                      self.fdm.get_fdm()['attitude/psi-deg'], 
-                                      self.fdm.get_fdm()['position/lat-geod-deg'],
-                                      self.fdm.get_fdm()['position/long-gc-deg'],
-                                      self.fdm.initial_lat,
-                                      self.fdm.initial_lon,
-                                      self.fdm.get_fdm()['position/h-sl-ft'] * 0.3048)
-            
-            self.hardware.send(self.fdm.get_fdm())
+            if self.fdm.update():
+                self.visuals.update_state(self.fdm.get_fdm()['attitude/phi-deg'], 
+                                          self.fdm.get_fdm()['attitude/theta-deg'], 
+                                          self.fdm.get_fdm()['attitude/psi-deg'], 
+                                          self.fdm.get_fdm()['position/lat-geod-deg'],
+                                          self.fdm.get_fdm()['position/long-gc-deg'],
+                                          self.fdm.initial_lat,
+                                          self.fdm.initial_lon,
+                                          self.fdm.get_fdm()['position/h-sl-ft'] * 0.3048)
+                self.hardware.send(self.fdm.get_fdm())
 
     def start(self):
         sim_thread = threading.Thread(target=self.update_sim)

@@ -49,6 +49,9 @@ class FlightDynamicsModel:
             if time.time() - self.last_print_time > 0.2:
                 self.print()
                 self.last_print_time = time.time()
+            
+            return True
+        return False
     
     def get_fdm(self):
         return self.fdm
