@@ -7,7 +7,7 @@ from utils import *
 class Simulator:
     def __init__(self):
         self.fdm = FlightDynamicsModel()
-        self.visuals = Visuals()
+        self.visuals = Visuals(self.fdm.initial_lat, self.fdm.initial_lon, 10)
         self.hardware = HardwareInterface()
 
     def update_sim(self):
@@ -16,7 +16,6 @@ class Simulator:
                 self.fdm.set_controls(self.visuals.aileron, self.visuals.elevator, self.visuals.throttle)
             else:
                 aileron, elevator, throttle = self.hardware.read_inputs()
-                print((aileron, elevator, throttle))
                 self.fdm.set_controls(aileron, elevator, throttle)
 
             if self.fdm.update():
@@ -25,8 +24,6 @@ class Simulator:
                                           self.fdm.get_fdm()['attitude/psi-deg'], 
                                           self.fdm.get_fdm()['position/lat-geod-deg'],
                                           self.fdm.get_fdm()['position/long-gc-deg'],
-                                          self.fdm.initial_lat,
-                                          self.fdm.initial_lon,
                                           self.fdm.get_fdm()['position/h-sl-ft'] * 0.3048)
                 self.hardware.send(self.fdm.get_fdm())
 

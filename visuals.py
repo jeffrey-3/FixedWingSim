@@ -3,8 +3,12 @@ from direct.showbase.ShowBase import ShowBase
 from utils import *
 
 class Visuals(ShowBase):
-    def __init__(self):
+    def __init__(self, rwy_lat, rwy_lon, rwy_hdg):
         ShowBase.__init__(self)
+
+        self.rwy_lat = rwy_lat
+        self.rwy_lon = rwy_lon
+        self.rwy_hdg = rwy_hdg
 
         props = WindowProperties()
         props.setTitle("UAV Simulation")
@@ -18,6 +22,7 @@ class Visuals(ShowBase):
 
         # Create a grid for the ground
         self.create_ground()
+        self.create_runway()
 
         self.roll = 0
         self.pitch = 0
@@ -32,7 +37,6 @@ class Visuals(ShowBase):
 
         # Add the flight control task
         self.taskMgr.add(self.update_flight, "update_flight")
-
         self.taskMgr.add(self.get_mouse_pos, "MousePositionTask")
 
         # Accept key events
@@ -63,8 +67,6 @@ class Visuals(ShowBase):
         grid = self.render.attachNewNode(grid_node)
         grid.setPos(0, 0, 0)
 
-        self.create_runway()
-
     def create_runway(self):
         """Create a grey runway on the grid."""
         runway_lines = LineSegs()
@@ -72,23 +74,24 @@ class Visuals(ShowBase):
         runway_lines.setColor(1, 1, 0, 1)  # Grey color for the runway
 
         # Define runway dimensions
-        runway_length = 10  # Length of the runway
-        runway_width = 400  # Width of the runway
+        runway_length = 400  # Length of the runway
+        runway_width = 10  # Width of the runway
 
         # Draw the runway outline
-        runway_lines.moveTo(-runway_length / 2, -runway_width / 2, 0)
-        runway_lines.drawTo(runway_length / 2, -runway_width / 2, 0)
-        runway_lines.drawTo(runway_length / 2, runway_width / 2, 0)
-        runway_lines.drawTo(-runway_length / 2, runway_width / 2, 0)
-        runway_lines.drawTo(-runway_length / 2, -runway_width / 2, 0)
+        runway_lines.moveTo(-runway_width / 2, -runway_length / 2, 0)
+        runway_lines.drawTo(runway_width / 2, -runway_length / 2, 0)
+        runway_lines.drawTo(runway_width / 2, runway_length / 2, 0)
+        runway_lines.drawTo(-runway_width / 2, runway_length / 2, 0)
+        runway_lines.drawTo(-runway_width / 2, -runway_length / 2, 0)
 
         # Create the runway node and attach it to the scene
         runway_node = runway_lines.create()
         runway = self.render.attachNewNode(runway_node)
-        runway.setPos(0, 200, 0)  # Center the runway at the origin
+        runway.setPos(0, 0, 0)  # Center the runway at the origin
+        runway.setHpr(-self.rwy_hdg, 0, 0)
     
-    def update_state(self, roll, pitch, heading, lat, lon, initial_lat, initial_lon, alt):
-        north, east = calculate_north_east(lat, lon, initial_lat, initial_lon)
+    def update_state(self, roll, pitch, heading, lat, lon, alt):
+        north, east = calculate_north_east(lat, lon, self.rwy_lat, self.rwy_lon)
         self.roll = roll
         self.pitch = pitch
         self.heading = heading

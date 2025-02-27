@@ -52,7 +52,6 @@ class HardwareInterface:
             struct_size = struct.calcsize(struct_format)
             rx_buff = self.ser.read(struct_size)
             self.input = struct.unpack(struct_format, rx_buff)
-            # print(rx_buff)
     
     def est_mag(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
         gm = geomag.geomag.GeoMag()
