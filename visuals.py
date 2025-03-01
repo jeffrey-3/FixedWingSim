@@ -87,7 +87,7 @@ class Visuals(ShowBase):
         # Create the runway node and attach it to the scene
         runway_node = runway_lines.create()
         runway = self.render.attachNewNode(runway_node)
-        runway.setPos(0, 0, 0)  # Center the runway at the origin
+        runway.setPos(runway_length/2 * math.sin(math.radians(self.rwy_hdg)), runway_length/2 * math.cos(math.radians(self.rwy_hdg)), 0)  # Center the runway at the origin
         runway.setHpr(-self.rwy_hdg, 0, 0)
     
     def update_state(self, roll, pitch, heading, lat, lon, alt):
@@ -102,14 +102,13 @@ class Visuals(ShowBase):
     def update_flight(self, task):
         self.camera.setHpr(-self.heading, self.pitch, self.roll)
         self.camera.setPos(self.east, self.north, -self.down) # xyz
-
         return task.cont
 
     def get_mouse_pos(self, task):
         if self.mouseWatcherNode.hasMouse():
             self.aileron = self.mouseWatcherNode.getMouseX()
             self.elevator = self.mouseWatcherNode.getMouseY()
-        return task.cont  # Continue the task
+        return task.cont
 
     def change_throttle(self, delta):
         self.throttle += delta * 0.25  # Adjust step size

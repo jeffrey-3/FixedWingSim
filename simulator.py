@@ -7,7 +7,7 @@ from utils import *
 class Simulator:
     def __init__(self):
         self.fdm = FlightDynamicsModel()
-        self.visuals = Visuals(self.fdm.initial_lat, self.fdm.initial_lon, 10)
+        self.visuals = Visuals(43.878960, -79.413383, 10)
         self.hardware = HardwareInterface()
 
     def update_sim(self):
@@ -28,10 +28,7 @@ class Simulator:
                 self.hardware.send(self.fdm.get_fdm())
 
     def start(self):
-        sim_thread = threading.Thread(target=self.update_sim)
-        sim_thread.daemon = True
-        sim_thread.start()
-
+        threading.Thread(target=self.update_sim, daemon=True).start()
         self.visuals.run()
 
 if __name__ == "__main__":

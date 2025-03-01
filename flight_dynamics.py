@@ -5,19 +5,11 @@ from utils import *
 class FlightDynamicsModel:
     def __init__(self):
         self.fdm = jsbsim.FGFDMExec("models_jsbsim", None)  # Use JSBSim default aircraft data.
-        self.fdm.set_dt(0.01)
-        self.start_time = time.time()
-
-        # Load aircraft model
         self.fdm.load_model("Rascal110")
-
         self.set_initial_conditions()
         self.fdm.run_ic()
-
-        self.initial_lat = self.fdm['position/lat-geod-deg']
-        self.initial_lon = self.fdm['position/long-gc-deg']
-
-        print(self.fdm.get_property_catalog())
+        self.fdm.set_dt(0.01) # Best if it matches autopilot loop rate
+        self.start_time = time.time()
     
     def set_initial_conditions(self):
         self.fdm["ic/lat-geod-deg"] = 43.878960
