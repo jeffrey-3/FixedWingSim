@@ -4,11 +4,11 @@ from utils import *
 
 class FlightDynamicsModel:
     def __init__(self):
-        self.fdm = jsbsim.FGFDMExec("models_jsbsim", None)  # Use JSBSim default aircraft data.
-        self.fdm.load_model("Rascal110")
+        self.fdm = jsbsim.FGFDMExec("models_jsbsim", None)
+        self.fdm.load_model("YardStik")
         self.set_initial_conditions()
         self.fdm.run_ic()
-        self.fdm.set_dt(0.01) # Best if it matches autopilot loop rate
+        self.fdm.set_dt(0.008)
         self.start_time = time.time()
     
     def set_initial_conditions(self):

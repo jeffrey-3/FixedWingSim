@@ -22,7 +22,7 @@ class HardwareInterface:
     def read_inputs(self):
         return self.input
     
-    def send(self, fdm):
+    def send(self, fdm, terrain_height_m):
         if not self.mouse_enable:
             mag = self.est_mag(fdm['position/lat-geod-deg'], 
                                fdm['position/long-gc-deg'], 
@@ -42,7 +42,7 @@ class HardwareInterface:
                                           fdm['position/h-sl-ft'] * 0.3048,
                                           fdm['position/lat-geod-deg'],
                                           fdm['position/long-gc-deg'],
-                                          fdm['position/h-agl-ft'] * 0.3048)
+                                          fdm['position/h-sl-ft'] * 0.3048 - terrain_height_m)
             
             self.ser.write(tx_buff)
     

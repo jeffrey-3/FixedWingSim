@@ -1,6 +1,9 @@
-from panda3d.core import LineSegs, Vec4, WindowProperties
+from panda3d.core import LineSegs, WindowProperties
 from direct.showbase.ShowBase import ShowBase
 from utils import *
+from panda3d.core import LineSegs, NodePath
+from direct.showbase.ShowBase import ShowBase
+import numpy as np
 
 class Visuals(ShowBase):
     def __init__(self, rwy_lat, rwy_lon, rwy_hdg):
@@ -14,14 +17,11 @@ class Visuals(ShowBase):
         props.setTitle("UAV Simulation")
         self.win.requestProperties(props)
 
-        # Black background color
-        self.win.setClearColor(Vec4(0, 0, 0, 1))
-
         # Disable default mouse camera control
         self.disableMouse()
 
         # Create a grid for the ground
-        self.create_ground()
+        self.create_terrain_mesh()
         self.create_runway()
 
         self.roll = 0
@@ -30,6 +30,7 @@ class Visuals(ShowBase):
         self.north = 0
         self.east = 0
         self.down = 0
+        self.terrain_height = 0
 
         self.aileron = 0
         self.elevator = 0
@@ -42,30 +43,79 @@ class Visuals(ShowBase):
         # Accept key events
         self.accept("w", self.change_throttle, [1])
         self.accept("s", self.change_throttle, [-1])
+        self.accept("l", self.hand_launch)
+    
+    def create_terrain_mesh(self):
+        """Create a terrain mesh using a manually defined lookup table."""
+        # Define the size of the terrain grid
+        self.grid_size = 200  # Number of grid cells
+        self.spacing = 10.0  # Distance between grid points
 
-    def create_ground(self):
-        """Create a grid for the ground using LineSegs."""
+        # Manually define the lookup table for terrain height
+        self.lookup_table = np.zeros((self.grid_size, self.grid_size))
+        # self.lookup_table[80:100, 90:100] = 30
+        # self.lookup_table[70:80, 90:100] = 10
+
+        # Calculate the total size of the terrain
+        total_size = self.grid_size * self.spacing
+
+        # Calculate the offset to center the mesh
+        offset = total_size / 2
+
+        # Create a LineSegs object to draw the lines
         lines = LineSegs()
-        lines.setThickness(1)  # Set the thickness of the grid lines
-        lines.setColor(1, 1, 1, 0.2)  # Gray color for the grid
+        lines.set_color(1, 1, 1, 1)  # Set the color of the lines (white)
 
-        grid_size = 1000  # Size of the grid
-        spacing = 5  # Spacing between grid lines
+        # Draw the grid lines using the lookup table for height
+        for x in range(self.grid_size):
+            for y in range(self.grid_size):
+                # Get height from the lookup table
+                height = self.lookup_table[x][y]
 
-        # Draw horizontal lines
-        for i in range(-grid_size, grid_size + 1, spacing):
-            lines.moveTo(i, -grid_size, 0)
-            lines.drawTo(i, grid_size, 0)
+                # Draw lines along the X-axis
+                if x < self.grid_size - 1:
+                    next_height_x = self.lookup_table[x + 1][y]
+                    lines.move_to(x * self.spacing - offset, y * self.spacing - offset, height)
+                    lines.draw_to((x + 1) * self.spacing - offset, y * self.spacing - offset, next_height_x)
 
-        # Draw vertical lines
-        for i in range(-grid_size, grid_size + 1, spacing):
-            lines.moveTo(-grid_size, i, 0)
-            lines.drawTo(grid_size, i, 0)
+                # Draw lines along the Y-axis
+                if y < self.grid_size - 1:
+                    next_height_y = self.lookup_table[x][y + 1]
+                    lines.move_to(x * self.spacing - offset, y * self.spacing - offset, height)
+                    lines.draw_to(x * self.spacing - offset, (y + 1) * self.spacing - offset, next_height_y)
 
-        # Create the grid node and attach it to the scene
-        grid_node = lines.create()
-        grid = self.render.attachNewNode(grid_node)
-        grid.setPos(0, 0, 0)
+        # Create a NodePath to hold the lines
+        lines_node = lines.create()
+        lines_np = NodePath(lines_node)
+        lines_np.reparent_to(self.render)
+
+    def get_terrain_height(self, x, y):
+        """Calculate the terrain height at a given (x, y) position using bilinear interpolation."""
+        # Normalize the position to grid coordinates
+        grid_x = (x + (self.grid_size * self.spacing / 2)) / self.spacing
+        grid_y = (y + (self.grid_size * self.spacing / 2)) / self.spacing
+
+        # Get the indices of the surrounding grid points
+        x1 = int(grid_x)
+        y1 = int(grid_y)
+        x2 = min(x1 + 1, self.grid_size - 1)
+        y2 = min(y1 + 1, self.grid_size - 1)
+
+        # Get the heights of the surrounding grid points
+        h11 = self.lookup_table[x1][y1]
+        h12 = self.lookup_table[x1][y2]
+        h21 = self.lookup_table[x2][y1]
+        h22 = self.lookup_table[x2][y2]
+
+        # Perform bilinear interpolation
+        dx = grid_x - x1
+        dy = grid_y - y1
+        height = (h11 * (1 - dx) * (1 - dy) +
+                 h21 * dx * (1 - dy) +
+                 h12 * (1 - dx) * dy +
+                 h22 * dx * dy)
+
+        return height
 
     def create_runway(self):
         """Create a grey runway on the grid."""
@@ -100,6 +150,7 @@ class Visuals(ShowBase):
         self.down = -alt
 
     def update_flight(self, task):
+        self.terrain_height = self.get_terrain_height(self.east, self.north)
         self.camera.setHpr(-self.heading, self.pitch, self.roll)
         self.camera.setPos(self.east, self.north, -self.down) # xyz
         return task.cont
@@ -113,3 +164,6 @@ class Visuals(ShowBase):
     def change_throttle(self, delta):
         self.throttle += delta * 0.25  # Adjust step size
         self.throttle = max(0.0, min(1.0, self.throttle))  # Clamp between 0 and 1
+    
+    def hand_launch(self):
+        print("Hand launch")
