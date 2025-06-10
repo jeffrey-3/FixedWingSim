@@ -42,3 +42,16 @@ def calculate_north_east(lat, lon, center_lat, center_lon):
         east_distance = -east_distance
 
     return north_distance, east_distance
+
+def map_range(x, a1, a2, b1, b2):
+    """
+    Maps a value x from range [a1, a2] to range [b1, b2].
+    
+    :param x: The value to map.
+    :param a1: The lower bound of the input range.
+    :param a2: The upper bound of the input range.
+    :param b1: The lower bound of the output range.
+    :param b2: The upper bound of the output range.
+    :return: The mapped value.
+    """
+    return b1 + (x - a1) * (b2 - b1) / (a2 - a1)

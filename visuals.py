@@ -1,9 +1,10 @@
 from panda3d.core import LineSegs, WindowProperties
 from direct.showbase.ShowBase import ShowBase
-from utils import *
 from panda3d.core import LineSegs, NodePath
 from direct.showbase.ShowBase import ShowBase
 import numpy as np
+import math
+import utils
 
 class Visuals(ShowBase):
     def __init__(self, rwy_lat, rwy_lon, rwy_hdg):
@@ -32,9 +33,9 @@ class Visuals(ShowBase):
         self.down = 0
         self.terrain_height = 0
 
-        self.aileron = 0
+        self.rudder = 0
         self.elevator = 0
-        self.throttle = 0.0001
+        self.throttle = 1001
 
         # Add the flight control task
         self.taskMgr.add(self.update_flight, "update_flight")
@@ -141,7 +142,7 @@ class Visuals(ShowBase):
         runway.setHpr(-self.rwy_hdg, 0, 0)
     
     def update_state(self, roll, pitch, heading, lat, lon, alt):
-        north, east = calculate_north_east(lat, lon, self.rwy_lat, self.rwy_lon)
+        north, east = utils.calculate_north_east(lat, lon, self.rwy_lat, self.rwy_lon)
         self.roll = roll
         self.pitch = pitch
         self.heading = heading
@@ -157,13 +158,13 @@ class Visuals(ShowBase):
 
     def get_mouse_pos(self, task):
         if self.mouseWatcherNode.hasMouse():
-            self.aileron = self.mouseWatcherNode.getMouseX()
-            self.elevator = self.mouseWatcherNode.getMouseY()
+            self.rudder = utils.map_range(self.mouseWatcherNode.getMouseX(), -1, 1, 1000, 2000)
+            self.elevator = utils.map_range(self.mouseWatcherNode.getMouseY(), -1, 1, 1000, 2000)
         return task.cont
 
     def change_throttle(self, delta):
-        self.throttle += delta * 0.25  # Adjust step size
-        self.throttle = max(0.0, min(1.0, self.throttle))  # Clamp between 0 and 1
+        self.throttle += delta * 250  # Adjust step size
+        self.throttle = max(1000, min(2000, self.throttle))  # Clamp between 1000 and 2000
     
     def hand_launch(self):
         print("Hand launch")

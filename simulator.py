@@ -6,7 +6,7 @@ from utils import *
 
 class Simulator:
     def __init__(self):
-        self.fdm = FlightDynamicsModel()
+        self.fdm = FlightDynamicsModel(43.878960, -79.413383)
         self.visuals = Visuals(43.8850443, -79.4124171, 2.2)
         self.hardware = HardwareInterface()
 
@@ -14,11 +14,11 @@ class Simulator:
         while True:
             if self.hardware.mouse_enable:
                 self.fdm.set_controls(
-                    self.visuals.aileron, self.visuals.elevator, self.visuals.throttle
+                    self.visuals.elevator, self.visuals.rudder, self.visuals.throttle
                 )
             else:
-                aileron, elevator, throttle = self.hardware.read_inputs()
-                self.fdm.set_controls(aileron, elevator, throttle)
+                elevator, rudder, throttle = self.hardware.read_inputs()
+                self.fdm.set_controls(elevator, rudder, throttle)
 
             if self.fdm.update():
                 self.visuals.update_state(
