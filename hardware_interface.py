@@ -1,73 +1,71 @@
 import serial
-import struct
-import geomag
-import numpy as np
-import navpy
-import math
+from utils import *
 import threading
-import utils
+from aplink.aplink_messages import *
+from dataclasses import dataclass
+from queue import Queue
+import time
+from flight_dynamics import SimulatedSensors
+
+@dataclass
+class ControlInput:
+    elevator: float 
+    rudder: float
+    throttle: float
 
 class HardwareInterface:
-    def __init__(self):
-        self.mouse_enable = False
+    def __init__(self, control_inputs_queue: Queue, simulated_sensors_queue: Queue):
+        self.control_inputs_queue = control_inputs_queue
+        self.simulated_sensors_queue = simulated_sensors_queue
+        self.aplink = APLink()
 
-        self.input = (0, 0, 1001)
-
+    def connect(self, port: str, baud_rate: int) -> bool:
         try:
-            self.ser = serial.Serial("COM25", 115200)
-            threading.Thread(target=self.update, daemon=True).start()
+            self.serial_conn = serial.Serial(port, baud_rate)
+            threading.Thread(target=self._receive_thread, daemon=True).start()
+            threading.Thread(target=self._transmit_thread, daemon=True).start()
+            return True
         except serial.serialutil.SerialException: 
-            print("Can't open port. Using mouse control.")
-            self.mouse_enable = True
+            return False
     
-    def read_inputs(self):
-        return self.input
-    
-    def send(self, fdm, terrain_height_m):
-        if not self.mouse_enable:
-            mag = self.est_mag(fdm['position/lat-geod-deg'], 
-                               fdm['position/long-gc-deg'], 
-                               fdm['attitude/phi-rad'], 
-                               fdm['attitude/theta-rad'], 
-                               fdm['attitude/psi-rad'] - math.pi)
-            
-            agl = fdm['position/h-sl-ft'] * 0.3048 - terrain_height_m
-
-            tx_buff = struct.pack('=10f2i2h', 
-                                  fdm['accelerations/n-pilot-x-norm'], 
-                                  fdm['accelerations/n-pilot-y-norm'],
-                                  fdm['accelerations/n-pilot-z-norm'],
-                                  fdm['velocities/p-rad_sec'] * 180 / math.pi,
-                                  fdm['velocities/q-rad_sec'] * 180 / math.pi,
-                                  fdm['velocities/r-rad_sec'] * 180 / math.pi,
-                                  -mag[0],
-                                  -mag[1],
-                                  -mag[2],
-                                  fdm['position/h-sl-ft'] * 0.3048,
-                                  int(fdm['position/lat-geod-deg'] * 1e7),
-                                  int(fdm['position/long-gc-deg'] * 1e7),
-                                  int(0),
-                                  int(0))
-            
-            self.ser.write(tx_buff)
-    
-    def update(self):
+    def _transmit_thread(self):
         while True:
-            struct_format = '3H'
-            struct_size = struct.calcsize(struct_format)
-            rx_buff = self.ser.read(struct_size)
-            self.input = struct.unpack(struct_format, rx_buff)
-            print(self.input)
+            if self.simulated_sensors_queue.not_empty:
+                simulated_sensors: SimulatedSensors = self.simulated_sensors_queue.get()
+                self.serial_conn.write(
+                    aplink_hitl_sensors().pack(
+                        simulated_sensors.ax,
+                        simulated_sensors.ay,
+                        simulated_sensors.az,
+                        simulated_sensors.gx,
+                        simulated_sensors.gy,
+                        simulated_sensors.gz,
+                        simulated_sensors.mx,
+                        simulated_sensors.my,
+                        simulated_sensors.mz,
+                        simulated_sensors.baro_asl,
+                        simulated_sensors.gps_lat,
+                        simulated_sensors.gps_lon,
+                        simulated_sensors.of_x,
+                        simulated_sensors.of_y
+                    )
+                )
+            else:
+                time.sleep(0.0001)
     
-    def est_mag(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
-        gm = geomag.geomag.GeoMag()
-        mag = gm.GeoMag(lat_deg, lon_deg)
-        mag_ned = np.array( [mag.bx, mag.by, mag.bz] )
-        norm = np.linalg.norm(mag_ned)
-        mag_ned /= norm
-        N2B = navpy.angle2dcm(psi_rad, the_rad, phi_rad, input_unit='rad')
-        mag_body = N2B.dot(mag_ned)
-        norm = np.linalg.norm(mag_body)
-        mag_body /= norm
-        # print("  mag ned:", mag_ned, "body:", mag_body)
-        return mag_body
+    def _receive_thread(self):
+        while True:
+            byte = self.serial_conn.read(1)
+            result = self.aplink.parse_byte(ord(byte))
+            if result is not None:
+                payload, msg_id = result
+                if msg_id == aplink_hitl_commands.msg_id:
+                    msg = aplink_hitl_commands()
+                    msg.unpack(payload)
+                    self.control_inputs_queue.put(
+                        ControlInput(
+                            map_range(float(msg.ele_pwm), 1000, 2000, -1, 1),
+                            map_range(float(msg.rud_pwm), 1000, 2000, -1, 1),
+                            map_range(float(msg.thr_pwm), 1000, 2000, 0, 1)
+                        )
+                    )

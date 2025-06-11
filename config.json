@@ -1,0 +1,9 @@
+{
+    "serial_port": "COM25",
+    "baud_rate": 115200,
+    "model": "YardStik",
+    "initial_conditions": {
+        "lat": 43.878960,
+        "lon": -79.413383
+    }
+}
