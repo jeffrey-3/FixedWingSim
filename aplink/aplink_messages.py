@@ -13,11 +13,6 @@ class PARAM_TYPE(IntEnum):
     FLOAT = 1,
     
 
-class COMMAND_ID(IntEnum):
-    
-    CALIBRATE = 0,
-    
-
 class MODE_ID(IntEnum):
     
     CONFIG = 0,
@@ -401,32 +396,15 @@ class aplink_mission_item:
     msg_id = 6  
                       
     
-    type = None             
-    
     lat = None             
     
     lon = None             
     
-    radius = None             
-    
-    direction = None             
-    
-    final_leg = None             
-    
-    glideslope = None             
-    
-    runway_heading = None             
-    
     
     def unpack(self, payload: bytes):
-        unpack = struct.unpack("=BiifBfff", payload)
+        unpack = struct.unpack("=ii", payload)
         offset = 0
                     
-        
-        
-        self.type = unpack[offset]
-        offset += 1
-        
         
         
         self.lat = unpack[offset]
@@ -438,36 +416,11 @@ class aplink_mission_item:
         offset += 1
         
         
-        
-        self.radius = unpack[offset]
-        offset += 1
-        
-        
-        
-        self.direction = unpack[offset]
-        offset += 1
-        
-        
-        
-        self.final_leg = unpack[offset]
-        offset += 1
-        
-        
-        
-        self.glideslope = unpack[offset]
-        offset += 1
-        
-        
-        
-        self.runway_heading = unpack[offset]
-        offset += 1
-        
-        
                     
         return True
     
-    def pack(self, type, lat, lon, radius, direction, final_leg, glideslope, runway_heading):
-        payload = struct.pack("=BiifBfff", type, lat, lon, radius, direction, final_leg, glideslope, runway_heading)
+    def pack(self, lat, lon):
+        payload = struct.pack("=ii", lat, lon)
         return APLink().pack(payload, self.msg_id)
         
 class aplink_hitl_sensors:
@@ -677,9 +630,21 @@ class aplink_waypoints_count:
     
     num_waypoints = None             
     
+    type = None             
+    
+    radius = None             
+    
+    direction = None             
+    
+    final_leg = None             
+    
+    glideslope = None             
+    
+    runway_heading = None             
+    
     
     def unpack(self, payload: bytes):
-        unpack = struct.unpack("=B", payload)
+        unpack = struct.unpack("=BBfBfff", payload)
         offset = 0
                     
         
@@ -688,11 +653,41 @@ class aplink_waypoints_count:
         offset += 1
         
         
+        
+        self.type = unpack[offset]
+        offset += 1
+        
+        
+        
+        self.radius = unpack[offset]
+        offset += 1
+        
+        
+        
+        self.direction = unpack[offset]
+        offset += 1
+        
+        
+        
+        self.final_leg = unpack[offset]
+        offset += 1
+        
+        
+        
+        self.glideslope = unpack[offset]
+        offset += 1
+        
+        
+        
+        self.runway_heading = unpack[offset]
+        offset += 1
+        
+        
                     
         return True
     
-    def pack(self, num_waypoints):
-        payload = struct.pack("=B", num_waypoints)
+    def pack(self, num_waypoints, type, radius, direction, final_leg, glideslope, runway_heading):
+        payload = struct.pack("=BBfBfff", num_waypoints, type, radius, direction, final_leg, glideslope, runway_heading)
         return APLink().pack(payload, self.msg_id)
         
 class aplink_request_waypoint:
@@ -805,11 +800,11 @@ class aplink_param_set:
         payload = struct.pack("=BBBBBBBBBBBBBBBBBBBBB", *name, *value, type)
         return APLink().pack(payload, self.msg_id)
         
-class aplink_command:
+class aplink_request_cal_sensors:
     msg_id = 16  
                       
     
-    command_id = None             
+    placeholder = None             
     
     
     def unpack(self, payload: bytes):
@@ -818,13 +813,13 @@ class aplink_command:
                     
         
         
-        self.command_id = unpack[offset]
+        self.placeholder = unpack[offset]
         offset += 1
         
         
                     
         return True
     
-    def pack(self, command_id):
-        payload = struct.pack("=B", command_id)
+    def pack(self, placeholder):
+        payload = struct.pack("=B", placeholder)
         return APLink().pack(payload, self.msg_id)

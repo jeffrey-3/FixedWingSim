@@ -1,46 +1,17 @@
 import jsbsim
 import time
-import utils
 import math
-from queue import Queue
 import threading
 import geomag
 import numpy as np
 import navpy
-from hardware_interface import ControlInput
-from dataclasses import dataclass
-
-@dataclass
-class SimulatedSensors:
-    ax: float
-    ay: float
-    az: float
-    gx: float
-    gy: float
-    gz: float
-    mx: float
-    my: float
-    mz: float
-    baro_asl: float
-    gps_lat: float
-    gps_lon: float
-    of_x: float
-    of_y: float
-
-@dataclass
-class VehicleState:
-    roll: float
-    pitch: float
-    yaw: float
-    lat: float
-    lon: float
-    alt: float
+from data_structures import *
 
 class FlightDynamicsModel:
-    def __init__(self, initial_lat, initial_lon, control_input_queue: Queue, simulated_sensors_queue: Queue, vehicle_state_queue: Queue):
-        self.control_input_queue = control_input_queue
-        self.simulated_sensors_queue = simulated_sensors_queue
-        self.vehicle_state_queue = vehicle_state_queue
+    def __init__(self, initial_lat, initial_lon, control_input: ControlInput, simulated_sensors: SimulatedSensors, vehicle_state: VehicleState):
+        self.control_input = control_input
+        self.simulated_sensors = simulated_sensors
+        self.vehicle_state = vehicle_state
 
         self.fdm = jsbsim.FGFDMExec("models_jsbsim", None)
         self.fdm.load_model("YardStik")
@@ -57,61 +28,49 @@ class FlightDynamicsModel:
     def _set_initial_conditions(self, initial_lat, initial_lon):
         self.fdm["ic/lat-geod-deg"] = initial_lat
         self.fdm["ic/long-gc-deg"] = initial_lon
-        self.fdm["ic/h-sl-ft"] = 5
-        self.fdm['attitude/phi-deg'] = 0
-        self.fdm['attitude/theta-deg'] = 0
-        self.fdm['ic/psi-true-deg'] = 0
-        self.fdm["ic/vc-kts"] = 0
 
     def _update(self):
-        if self.control_input_queue.not_empty():
-            control_input: ControlInput = self.control_input_queue.get()
-            self.fdm['fcs/elevator-cmd-norm'] = control_input.elevator
-            self.fdm['fcs/aileron-cmd-norm'] = control_input.rudder
-            self.fdm['fcs/throttle-cmd-norm'] = control_input.throttle
+        while True:
+            self.fdm['fcs/elevator-cmd-norm'] = self.control_input.elevator
+            self.fdm['fcs/aileron-cmd-norm'] = self.control_input.rudder
+            self.fdm['fcs/throttle-cmd-norm'] = max(self.control_input.throttle, 0.00001) # For some reason there is a bug when throttle is 0
 
-        sim_time = self.fdm.get_sim_time()
-        real_time = time.time() - self.start_time
-        if real_time >= sim_time:
-            self.fdm.run()
+            sim_time = self.fdm.get_sim_time()
+            real_time = time.time() - self.start_time
+            if real_time >= sim_time:
+                self.fdm.run()
 
-            mag = self._simulate_mag(
-                self.fdm['position/lat-geod-deg'], 
-                self.fdm['position/long-gc-deg'], 
-                self.fdm['attitude/phi-rad'], 
-                self.fdm['attitude/theta-rad'], 
-                self.fdm['attitude/psi-rad'] - math.pi
-            )
-                
-            self.simulated_sensors_queue.put(
-                SimulatedSensors(
-                    self.fdm['accelerations/n-pilot-x-norm'], 
-                    self.fdm['accelerations/n-pilot-y-norm'],
-                    self.fdm['accelerations/n-pilot-z-norm'],
-                    self.fdm['velocities/p-rad_sec'] * 180 / math.pi,
-                    self.fdm['velocities/q-rad_sec'] * 180 / math.pi,
-                    self.fdm['velocities/r-rad_sec'] * 180 / math.pi,
-                    -mag[0],
-                    -mag[1],
-                    -mag[2],
-                    self.fdm['position/h-sl-ft'] * 0.3048,
-                    int(self.fdm['position/lat-geod-deg'] * 1e7),
-                    int(self.fdm['position/long-gc-deg'] * 1e7),
-                    int(0),
-                    int(0)
+                mag = self._simulate_mag(
+                    self.fdm['position/lat-geod-deg'], 
+                    self.fdm['position/long-gc-deg'], 
+                    self.fdm['attitude/phi-rad'], 
+                    self.fdm['attitude/theta-rad'], 
+                    self.fdm['attitude/psi-rad'] - math.pi
                 )
-            )
+                    
+                self.simulated_sensors.ax = self.fdm['accelerations/n-pilot-x-norm']
+                self.simulated_sensors.ay = self.fdm['accelerations/n-pilot-y-norm']
+                self.simulated_sensors.az = self.fdm['accelerations/n-pilot-z-norm']
+                self.simulated_sensors.gx = self.fdm['velocities/p-rad_sec'] * 180 / math.pi
+                self.simulated_sensors.gy = self.fdm['velocities/q-rad_sec'] * 180 / math.pi
+                self.simulated_sensors.gz = self.fdm['velocities/r-rad_sec'] * 180 / math.pi
+                self.simulated_sensors.mx = -mag[0]
+                self.simulated_sensors.my = -mag[1]
+                self.simulated_sensors.mz = -mag[2]
+                self.simulated_sensors.baro_asl = self.fdm['position/h-sl-ft'] * 0.3048
+                self.simulated_sensors.gps_lat = int(self.fdm['position/lat-geod-deg'] * 1e7)
+                self.simulated_sensors.gps_lon = int(self.fdm['position/long-gc-deg'] * 1e7)
+                self.simulated_sensors.of_x = int(0)
+                self.simulated_sensors.of_y = int(0)
 
-            self.vehicle_state_queue.put(
-                VehicleState(
-                    self.fdm.get_fdm()['attitude/phi-deg'], 
-                    self.fdm.get_fdm()['attitude/theta-deg'], 
-                    self.fdm.get_fdm()['attitude/psi-deg'], 
-                    self.fdm.get_fdm()['position/lat-geod-deg'],
-                    self.fdm.get_fdm()['position/long-gc-deg'],
-                    self.fdm.get_fdm()['position/h-sl-ft'] * 0.3048
-                )
-            )
+                self.vehicle_state.roll = self.fdm['attitude/phi-deg']
+                self.vehicle_state.pitch = self.fdm['attitude/theta-deg']
+                self.vehicle_state.yaw = self.fdm['attitude/psi-deg']
+                self.vehicle_state.lat = self.fdm['position/lat-geod-deg']
+                self.vehicle_state.lon = self.fdm['position/long-gc-deg']
+                self.vehicle_state.alt = self.fdm['position/h-sl-ft'] * 0.3048
+            else:
+                time.sleep(0.0001)
     
     def _simulate_mag(self, lat_deg, lon_deg, phi_rad, the_rad, psi_rad):
         gm = geomag.geomag.GeoMag()

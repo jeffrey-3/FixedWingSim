@@ -54,4 +54,10 @@ def map_range(x, a1, a2, b1, b2):
     :param b2: The upper bound of the output range.
     :return: The mapped value.
     """
+    if x <= a1:
+        return b1
+    
+    if x >= a2:
+        return b2
+
     return b1 + (x - a1) * (b2 - b1) / (a2 - a1)

@@ -3,113 +3,83 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.core import LineSegs, NodePath
 from direct.showbase.ShowBase import ShowBase
 import numpy as np
-import math
 import utils
-from queue import Queue
-from flight_dynamics import VehicleState
-from hardware_interface import ControlInput
+from data_structures import *
 
 class Visuals(ShowBase):
-    def __init__(self, center_lat, center_lon, vehicle_state_queue: Queue, mouse_keyboard_controls_queue: Queue):
+    def __init__(self, center_lat, center_lon, vehicle_state: VehicleState, mouse_keyboard_controls: ControlInput):
         ShowBase.__init__(self)
-
         self.center_lat = center_lat
         self.center_lon = center_lon
-        self.vehicle_state_queue = vehicle_state_queue
-        self.mouse_keyboard_controls_queue = mouse_keyboard_controls_queue
+        self.vehicle_state = vehicle_state
+        self.mouse_keyboard_controls = mouse_keyboard_controls
 
         props = WindowProperties()
         props.setTitle("UAV Simulation")
         self.win.requestProperties(props)
 
-        # Disable default mouse camera control
         self.disableMouse()
 
-        # Create a grid for the ground
-        self.create_terrain_mesh()
+        self.create_ground()
 
-        self.throttle = 0
-
-        # Add the flight control task
         self.taskMgr.add(self.update_flight, "update_flight")
 
-        # Accept key events
         self.accept("w", self.increase_throttle)
         self.accept("s", self.decrease_throttle)
     
-    def create_terrain_mesh(self):
-        """Create a terrain mesh using a manually defined lookup table."""
-        # Define the size of the terrain grid
-        self.grid_size = 200  # Number of grid cells
-        self.spacing = 10.0  # Distance between grid points
-
-        # Manually define the lookup table for terrain height
-        self.lookup_table = np.zeros((self.grid_size, self.grid_size))
-        # self.lookup_table[80:100, 90:100] = 30
-        # self.lookup_table[70:80, 90:100] = 10
-
-        # Calculate the total size of the terrain
-        total_size = self.grid_size * self.spacing
-
-        # Calculate the offset to center the mesh
-        offset = total_size / 2
-
+    def create_ground(self):
+        """Create an infinite flat grid."""
+        # Define the size of each grid cell
+        self.spacing = 10.0  # Distance between grid lines
+        
+        # Define how many grid lines to draw in each direction from center
+        grid_lines = 100  # Number of grid lines in each direction
+        
+        # Calculate the total size to render
+        total_size = grid_lines * self.spacing
+        
         # Create a LineSegs object to draw the lines
         lines = LineSegs()
         lines.set_color(1, 1, 1, 1)  # Set the color of the lines (white)
-
-        # Draw the grid lines using the lookup table for height
-        for x in range(self.grid_size):
-            for y in range(self.grid_size):
-                # Get height from the lookup table
-                height = self.lookup_table[x][y]
-
-                # Draw lines along the X-axis
-                if x < self.grid_size - 1:
-                    next_height_x = self.lookup_table[x + 1][y]
-                    lines.move_to(x * self.spacing - offset, y * self.spacing - offset, height)
-                    lines.draw_to((x + 1) * self.spacing - offset, y * self.spacing - offset, next_height_x)
-
-                # Draw lines along the Y-axis
-                if y < self.grid_size - 1:
-                    next_height_y = self.lookup_table[x][y + 1]
-                    lines.move_to(x * self.spacing - offset, y * self.spacing - offset, height)
-                    lines.draw_to(x * self.spacing - offset, (y + 1) * self.spacing - offset, next_height_y)
-
+        
+        # Draw grid lines along X-axis (east-west)
+        for i in range(-grid_lines, grid_lines + 1):
+            x = i * self.spacing
+            lines.move_to(x, -total_size, 0)
+            lines.draw_to(x, total_size, 0)
+        
+        # Draw grid lines along Y-axis (north-south)
+        for i in range(-grid_lines, grid_lines + 1):
+            y = i * self.spacing
+            lines.move_to(-total_size, y, 0)
+            lines.draw_to(total_size, y, 0)
+        
         # Create a NodePath to hold the lines
         lines_node = lines.create()
         lines_np = NodePath(lines_node)
         lines_np.reparent_to(self.render)
     
     def update_flight(self, task):
-        if self.vehicle_state_queue.not_empty():
-            vehicle_state: VehicleState = self.vehicle_state_queue.get()
+        north, east = utils.calculate_north_east(
+            self.vehicle_state.lat, 
+            self.vehicle_state.lon, 
+            self.center_lat, 
+            self.center_lon
+        )
 
-            north, east = utils.calculate_north_east(
-                vehicle_state.lat, 
-                vehicle_state.lon, 
-                self.center_lat, 
-                self.center_lon
-            )
-
-            self.camera.setHpr(-vehicle_state.yaw, vehicle_state.pitch, vehicle_state.roll)
-            self.camera.setPos(east, north, -vehicle_state.alt) # xyz
+        self.camera.setHpr(-self.vehicle_state.yaw, self.vehicle_state.pitch, self.vehicle_state.roll)
+        self.camera.setPos(east, north, self.vehicle_state.alt) # xyz
         
-        if self.mouseWatcher.hasMouse():
-            self.mouse_keyboard_controls_queue.put(
-                ControlInput(
-                    self.mouseWatcherNode.getMouseY(),
-                    self.mouseWatcherNode.getMouseX(),
-                    self.throttle
-                )
-            )
+        if self.mouseWatcherNode.hasMouse():
+            self.mouse_keyboard_controls.elevator = self.mouseWatcherNode.getMouseY()
+            self.mouse_keyboard_controls.rudder = self.mouseWatcherNode.getMouseX()
 
         return task.cont
 
     def increase_throttle(self):
-        self.throttle += 0.25
-        self.throttle = max(0, min(1, self.throttle))
+        self.mouse_keyboard_controls.throttle += 0.25
+        self.mouse_keyboard_controls.throttle = max(0, min(1, self.mouse_keyboard_controls.throttle))
     
     def decrease_throttle(self):
-        self.throttle -= 0.25
-        self.throttle = max(0, min(1, self.throttle))
+        self.mouse_keyboard_controls.throttle -= 0.25
+        self.mouse_keyboard_controls.throttle = max(0, min(1, self.mouse_keyboard_controls.throttle))

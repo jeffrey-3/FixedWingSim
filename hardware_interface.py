@@ -2,21 +2,14 @@ import serial
 from utils import *
 import threading
 from aplink.aplink_messages import *
-from dataclasses import dataclass
+from data_structures import *
 from queue import Queue
 import time
-from flight_dynamics import SimulatedSensors
-
-@dataclass
-class ControlInput:
-    elevator: float 
-    rudder: float
-    throttle: float
 
 class HardwareInterface:
-    def __init__(self, control_inputs_queue: Queue, simulated_sensors_queue: Queue):
-        self.control_inputs_queue = control_inputs_queue
-        self.simulated_sensors_queue = simulated_sensors_queue
+    def __init__(self, control_input: ControlInput, simulated_sensors: SimulatedSensors):
+        self.control_input = control_input
+        self.simulated_sensors = simulated_sensors
         self.aplink = APLink()
 
     def connect(self, port: str, baud_rate: int) -> bool:
@@ -30,42 +23,40 @@ class HardwareInterface:
     
     def _transmit_thread(self):
         while True:
-            if self.simulated_sensors_queue.not_empty:
-                simulated_sensors: SimulatedSensors = self.simulated_sensors_queue.get()
-                self.serial_conn.write(
-                    aplink_hitl_sensors().pack(
-                        simulated_sensors.ax,
-                        simulated_sensors.ay,
-                        simulated_sensors.az,
-                        simulated_sensors.gx,
-                        simulated_sensors.gy,
-                        simulated_sensors.gz,
-                        simulated_sensors.mx,
-                        simulated_sensors.my,
-                        simulated_sensors.mz,
-                        simulated_sensors.baro_asl,
-                        simulated_sensors.gps_lat,
-                        simulated_sensors.gps_lon,
-                        simulated_sensors.of_x,
-                        simulated_sensors.of_y
-                    )
+            self.serial_conn.write(
+                aplink_hitl_sensors().pack(
+                    self.simulated_sensors.ax,
+                    self.simulated_sensors.ay,
+                    self.simulated_sensors.az,
+                    self.simulated_sensors.gx,
+                    self.simulated_sensors.gy,
+                    self.simulated_sensors.gz,
+                    self.simulated_sensors.mx,
+                    self.simulated_sensors.my,
+                    self.simulated_sensors.mz,
+                    self.simulated_sensors.baro_asl,
+                    self.simulated_sensors.gps_lat,
+                    self.simulated_sensors.gps_lon,
+                    self.simulated_sensors.of_x,
+                    self.simulated_sensors.of_y
                 )
-            else:
-                time.sleep(0.0001)
+            )
+
+            time.sleep(0.005)
     
     def _receive_thread(self):
         while True:
             byte = self.serial_conn.read(1)
+            # print(byte)
             result = self.aplink.parse_byte(ord(byte))
             if result is not None:
                 payload, msg_id = result
                 if msg_id == aplink_hitl_commands.msg_id:
                     msg = aplink_hitl_commands()
                     msg.unpack(payload)
-                    self.control_inputs_queue.put(
-                        ControlInput(
-                            map_range(float(msg.ele_pwm), 1000, 2000, -1, 1),
-                            map_range(float(msg.rud_pwm), 1000, 2000, -1, 1),
-                            map_range(float(msg.thr_pwm), 1000, 2000, 0, 1)
-                        )
-                    )
+
+                    self.control_input.elevator = map_range(float(msg.ele_pwm), 1000, 2000, -1, 1)
+                    self.control_input.rudder = map_range(float(msg.rud_pwm), 1000, 2000, -1, 1)
+                    self.control_input.throttle = map_range(float(msg.thr_pwm), 1000, 2000, 0, 1)
+
+                    print(vars(self.control_input))
